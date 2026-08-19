@@ -7,7 +7,7 @@ local player = Players.LocalPlayer
 -- ==========================================
 -- CONFIGURATION
 -- ==========================================
-local MAX_SLOTS = 4 -- Mengatur batas maksimal slot hotbar (misal: 4)
+local MAX_SLOTS = 3 -- Mengatur batas maksimal slot hotbar (misal: 4)
 
 -- 1. PAKSA MATIKAN HOTBAR DEFAULT
 task.spawn(function()
@@ -104,7 +104,7 @@ local function updateHotbarUI()
 		-- Slot Tombol
 		local slotButton = Instance.new("TextButton")
 		slotButton.Name = "Slot_" .. i
-		slotButton.Size = UDim2.new(1, 0, 1, 0) -- Ukuran slot vertikal
+		slotButton.Size = UDim2.fromScale(1, 1) -- Ukuran slot vertikal
 		slotButton.AutoButtonColor = true
 		slotButton.Text = "" -- Teks tombol dikosongkan agar diisi label/ikon
 		slotButton.Parent = hotbarFrame
@@ -112,8 +112,8 @@ local function updateHotbarUI()
 		-- Text Label Nomor Slot [1], [2], dst.
 		local numLabel = Instance.new("TextLabel")
 		numLabel.Name = "NumLabel"
-		numLabel.Size = UDim2.new(0, 20, 0, 20)
-		numLabel.Position = UDim2.new(0, 4, 0, 2)
+		numLabel.Size = UDim2.fromOffset(20, 20)
+		numLabel.Position = UDim2.fromOffset(4, 2)
 		numLabel.BackgroundTransparency = 1
 		numLabel.Text = "[" .. i .. "]"
 		numLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -138,7 +138,7 @@ local function updateHotbarUI()
 			if tool.TextureId and tool.TextureId ~= "" then
 				local iconImage = Instance.new("ImageLabel")
 				iconImage.Name = "Icon"
-				iconImage.Size = UDim2.new(0, 40, 0, 40)
+				iconImage.Size = UDim2.fromOffset(40, 40)
 				iconImage.Position = UDim2.new(0.5, -20, 0.5, -20)
 				iconImage.BackgroundTransparency = 1
 				iconImage.Image = tool.TextureId
@@ -149,7 +149,7 @@ local function updateHotbarUI()
 				local nameLabel = Instance.new("TextLabel")
 				nameLabel.Name = "ItemName"
 				nameLabel.Size = UDim2.new(1, -8, 1, -8)
-				nameLabel.Position = UDim2.new(0, 4, 0, 4)
+				nameLabel.Position = UDim2.fromOffset(4, 4)
 				nameLabel.BackgroundTransparency = 1
 				nameLabel.Text = tool.Name
 				nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
