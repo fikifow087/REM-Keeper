@@ -50,30 +50,39 @@ local KEY_MAP = {
 	[Enum.KeyCode.Nine] = 9,
 }
 
+local orderedTools = {}
+
 local function getAllTools()
-	local tools = {}
-	local character = player.Character
+	local currentTools = {}
 	local backpack = player:FindFirstChild("Backpack")
+	local character = player.Character
 
-	-- Ambil Tool yang sedang dipegang di tangan
-	if character then
-		for _, item in ipairs(character:GetChildren()) do
+	local function registerTools(container)
+		if not container then
+			return
+		end
+
+		for _, item in ipairs(container:GetChildren()) do
 			if item:IsA("Tool") then
-				table.insert(tools, item)
+				currentTools[item] = true
+
+				if not table.find(orderedTools, item) then
+					table.insert(orderedTools, item)
+				end
 			end
 		end
 	end
 
-	-- Ambil Tool yang tersimpan di Backpack
-	if backpack then
-		for _, item in ipairs(backpack:GetChildren()) do
-			if item:IsA("Tool") then
-				table.insert(tools, item)
-			end
+	registerTools(backpack)
+	registerTools(character)
+
+	for index = #orderedTools, 1, -1 do
+		if not currentTools[orderedTools[index]] then
+			table.remove(orderedTools, index)
 		end
 	end
 
-	return tools
+	return orderedTools
 end
 
 local function updateHotbarUI()
