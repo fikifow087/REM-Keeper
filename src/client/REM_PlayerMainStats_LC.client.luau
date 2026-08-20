@@ -17,23 +17,28 @@ local frame = mainStatsGui:WaitForChild("Frame")
 -- Player Bar Elements
 local barHPPlayer = frame:WaitForChild("Bar_HP_Player")
 local barHPPlayerBuffer = frame:WaitForChild("Bar_HP_Player_Buffer")
+local barHPPlayerBG = frame:WaitForChild("Bar_HP_Player_BG")
 
 -- House Bar Elements
 local barHPHouse = frame:WaitForChild("Bar_HP_House")
 local barHPHouseBuffer = frame:WaitForChild("Bar_HP_House_Buffer")
+local barHPHouseBG = frame:WaitForChild("Bar_HP_House_BG")
 
-local function getHealthBarSize(bar, ratio)
-	local currentSize = bar.Size
-	return UDim2.new(ratio, 0, currentSize.Y.Scale, currentSize.Y.Offset)
+-- ==========================================
+-- KALKULASI UKURAN BAR TERHADAP BACKGROUND
+-- ==========================================
+local function getHealthBarSize(bgBar, ratio)
+	return UDim2.new(bgBar.Size.X.Scale * ratio, bgBar.Size.X.Offset * ratio, bgBar.Size.Y.Scale, bgBar.Size.Y.Offset)
 end
 
 -- ==========================================
 -- EFEK BUFFER & ANIMASI HEALTH BAR
 -- ==========================================
-local function createHealthBarController(mainBar, bufferBar)
+local function createHealthBarController(mainBar, bufferBar, backgroundBar)
 	local controller = {
 		mainBar = mainBar,
 		bufferBar = bufferBar,
+		backgroundBar = backgroundBar,
 		lastHealth = nil,
 		bufferThread = nil,
 	}
@@ -41,37 +46,35 @@ local function createHealthBarController(mainBar, bufferBar)
 	function controller:Update(health, maxHealth)
 		local max = math.max(maxHealth, 1)
 		local ratio = math.clamp(health / max, 0, 1)
+		local targetSize = getHealthBarSize(controller.backgroundBar, ratio)
 
-		-- Animasi Bar Utama (Langsung merespon damage/heal)
+		-- Animasi Bar Utama
 		local mainInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-		TweenService:Create(controller.mainBar, mainInfo, { Size = getHealthBarSize(controller.mainBar, ratio) }):Play()
+		TweenService:Create(controller.mainBar, mainInfo, { Size = targetSize }):Play()
 
-		-- Inisialisasi awal saat pertama kali dimuat
+		-- Inisialisasi awal
 		if controller.lastHealth == nil then
 			controller.lastHealth = health
-			controller.bufferBar.Size = getHealthBarSize(controller.bufferBar, ratio)
+			controller.bufferBar.Size = targetSize
 			return
 		end
 
 		-- Logika Efek Buffer
-		if health < self.lastHealth then
-			-- Terkena Damage: Batalkan delay buffer sebelumnya jika ada damage bertubi-tubi
+		if health < controller.lastHealth then
 			if controller.bufferThread then
 				task.cancel(controller.bufferThread)
 			end
 
-			-- Tahan sebentar (0.3s), lalu susul penurunan darah dengan halus (0.5s)
 			controller.bufferThread = task.delay(0.3, function()
 				local bufferInfo = TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
-				TweenService:Create(controller.bufferBar, bufferInfo, { Size = getHealthBarSize(controller.bufferBar, ratio) }):Play()
+				TweenService:Create(controller.bufferBar, bufferInfo, { Size = targetSize }):Play()
 			end)
 		else
-			-- Bertambah Darah (Heal): Langsung samakan buffer bar tanpa delay
 			if controller.bufferThread then
 				task.cancel(controller.bufferThread)
 			end
 			local bufferInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-			TweenService:Create(controller.bufferBar, bufferInfo, { Size = getHealthBarSize(controller.bufferBar, ratio) }):Play()
+			TweenService:Create(controller.bufferBar, bufferInfo, { Size = targetSize }):Play()
 		end
 
 		controller.lastHealth = health
@@ -80,9 +83,9 @@ local function createHealthBarController(mainBar, bufferBar)
 	return controller
 end
 
--- Instance Controller untuk Player dan House
-local playerBarController = createHealthBarController(barHPPlayer, barHPPlayerBuffer)
-local houseBarController = createHealthBarController(barHPHouse, barHPHouseBuffer)
+-- Instance Controller
+local playerBarController = createHealthBarController(barHPPlayer, barHPPlayerBuffer, barHPPlayerBG)
+local houseBarController = createHealthBarController(barHPHouse, barHPHouseBuffer, barHPHouseBG)
 
 -- ==========================================
 -- SYSTEM PLAYER HEALTH
