@@ -5,57 +5,72 @@ local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- 1. MENGAMBIL ELEMEN UI
-local mainStatsGui = playerGui:WaitForChild("REM_PlayerMainStats_GUI", 10)
-if not mainStatsGui then
-	warn("[ERROR] REM_PlayerMainStats_GUI tidak ditemukan!")
-	return
-end
+-- Variable penampung koneksi player agar tidak tumpang tindih saat respawn
+local healthChangedConn = nil
+local maxHealthChangedConn = nil
 
-local frame = mainStatsGui:WaitForChild("Frame")
-
--- Player Bar Elements
-local barHPPlayer = frame:WaitForChild("Bar_HP_Player")
-local barHPPlayerBuffer = frame:WaitForChild("Bar_HP_Player_Buffer")
-local barHPPlayerBG = frame:WaitForChild("Bar_HP_Player_BG")
-
--- House Bar Elements
-local barHPHouse = frame:WaitForChild("Bar_HP_House")
-local barHPHouseBuffer = frame:WaitForChild("Bar_HP_House_Buffer")
-local barHPHouseBG = frame:WaitForChild("Bar_HP_House_BG")
-
--- ==========================================
--- KALKULASI UKURAN BAR TERHADAP BACKGROUND
--- ==========================================
 local function getHealthBarSize(bgBar, ratio)
 	return UDim2.new(bgBar.Size.X.Scale * ratio, bgBar.Size.X.Offset * ratio, bgBar.Size.Y.Scale, bgBar.Size.Y.Offset)
 end
 
--- ==========================================
--- EFEK BUFFER & ANIMASI HEALTH BAR
--- ==========================================
-local function createHealthBarController(mainBar, bufferBar, backgroundBar)
+-- Function mengambil/refresh referensi elemen UI
+local function getGuiElements()
+	local mainStatsGui = playerGui:WaitForChild("REM_PlayerMainStats_GUI", 10)
+	if not mainStatsGui then
+		return nil
+	end
+
+	mainStatsGui.ResetOnSpawn = false
+
+	local frame = mainStatsGui:WaitForChild("Frame", 5)
+	if not frame then
+		return nil
+	end
+
+	return {
+		playerMain = frame:WaitForChild("Bar_HP_Player"),
+		playerBuffer = frame:WaitForChild("Bar_HP_Player_Buffer"),
+		playerBG = frame:WaitForChild("Bar_HP_Player_BG"),
+		houseMain = frame:WaitForChild("Bar_HP_House"),
+		houseBuffer = frame:WaitForChild("Bar_HP_House_Buffer"),
+		houseBG = frame:WaitForChild("Bar_HP_House_BG"),
+	}
+end
+
+local elements = getGuiElements()
+if not elements then
+	warn("[ERROR] Gagal memuat elemen UI REM_PlayerMainStats_GUI!")
+	return
+end
+
+-- Controller dengan Getter Dinamis (selalu menunjuk ke UI aktif)
+local function createHealthBarController(getMainBar, getBufferBar, getBgBar)
 	local controller = {
-		mainBar = mainBar,
-		bufferBar = bufferBar,
-		backgroundBar = backgroundBar,
 		lastHealth = nil,
 		bufferThread = nil,
 	}
 
 	function controller:Update(health, maxHealth)
+		local mainBar = getMainBar()
+		local bufferBar = getBufferBar()
+		local bgBar = getBgBar()
+
+		if not (mainBar and bufferBar and bgBar) then
+			return
+		end
+
 		local max = math.max(maxHealth, 1)
 		local ratio = math.clamp(health / max, 0, 1)
-		local targetSize = getHealthBarSize(controller.backgroundBar, ratio)
+		local targetSize = getHealthBarSize(bgBar, ratio)
 
 		-- Animasi Bar Utama
 		local mainInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-		TweenService:Create(controller.mainBar, mainInfo, { Size = targetSize }):Play()
+		TweenService:Create(mainBar, mainInfo, { Size = targetSize }):Play()
 
 		-- Inisialisasi awal
 		if controller.lastHealth == nil then
 			controller.lastHealth = health
-			controller.bufferBar.Size = targetSize
+			bufferBar.Size = targetSize
 			return
 		end
 
@@ -67,41 +82,87 @@ local function createHealthBarController(mainBar, bufferBar, backgroundBar)
 
 			controller.bufferThread = task.delay(0.3, function()
 				local bufferInfo = TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
-				TweenService:Create(controller.bufferBar, bufferInfo, { Size = targetSize }):Play()
+				TweenService:Create(bufferBar, bufferInfo, { Size = targetSize }):Play()
 			end)
 		else
 			if controller.bufferThread then
 				task.cancel(controller.bufferThread)
 			end
 			local bufferInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-			TweenService:Create(controller.bufferBar, bufferInfo, { Size = targetSize }):Play()
+			TweenService:Create(bufferBar, bufferInfo, { Size = targetSize }):Play()
 		end
 
 		controller.lastHealth = health
+	end
+
+	function controller:Reset()
+		if controller.bufferThread then
+			task.cancel(controller.bufferThread)
+			controller.bufferThread = nil
+		end
+
+		controller.lastHealth = nil
+		local mainBar = getMainBar()
+		local bufferBar = getBufferBar()
+		local bgBar = getBgBar()
+
+		if mainBar and bufferBar and bgBar then
+			mainBar.Size = getHealthBarSize(bgBar, 1)
+			bufferBar.Size = getHealthBarSize(bgBar, 1)
+		end
 	end
 
 	return controller
 end
 
 -- Instance Controller
-local playerBarController = createHealthBarController(barHPPlayer, barHPPlayerBuffer, barHPPlayerBG)
-local houseBarController = createHealthBarController(barHPHouse, barHPHouseBuffer, barHPHouseBG)
+local playerBarController = createHealthBarController(function()
+	return elements and elements.playerMain
+end, function()
+	return elements and elements.playerBuffer
+end, function()
+	return elements and elements.playerBG
+end)
+
+local houseBarController = createHealthBarController(function()
+	return elements and elements.houseMain
+end, function()
+	return elements and elements.houseBuffer
+end, function()
+	return elements and elements.houseBG
+end)
 
 -- ==========================================
 -- SYSTEM PLAYER HEALTH
 -- ==========================================
 local function setupPlayerHealth(character)
+	-- Refresh referensi elemen UI saat respawn
+	elements = getGuiElements()
+
+	-- Putuskan koneksi event karakter lama
+	if healthChangedConn then
+		healthChangedConn:Disconnect()
+		healthChangedConn = nil
+	end
+	if maxHealthChangedConn then
+		maxHealthChangedConn:Disconnect()
+		maxHealthChangedConn = nil
+	end
+
 	local humanoid = character:WaitForChild("Humanoid", 10)
 	if not humanoid then
 		return
 	end
 
+	playerBarController:Reset()
+
 	local function updatePlayer()
 		playerBarController:Update(humanoid.Health, humanoid.MaxHealth)
 	end
 
-	humanoid.HealthChanged:Connect(updatePlayer)
-	humanoid:GetPropertyChangedSignal("MaxHealth"):Connect(updatePlayer)
+	healthChangedConn = humanoid.HealthChanged:Connect(updatePlayer)
+	maxHealthChangedConn = humanoid:GetPropertyChangedSignal("MaxHealth"):Connect(updatePlayer)
+
 	updatePlayer()
 end
 
@@ -111,7 +172,7 @@ if player.Character then
 end
 
 -- ==========================================
--- SYSTEM HOUSE HEALTH (HouseCore -> Humanoid)
+-- SYSTEM HOUSE HEALTH (HouseCore -> HouseHumanoid)
 -- ==========================================
 local function setupHouseHealth()
 	local houseCore = Workspace:WaitForChild("HouseCore", 15)
@@ -120,9 +181,9 @@ local function setupHouseHealth()
 		return
 	end
 
-	local houseHumanoid = houseCore:WaitForChild("Humanoid", 10)
+	local houseHumanoid = houseCore:WaitForChild("HouseHumanoid", 10)
 	if not houseHumanoid then
-		warn("[ERROR] Humanoid tidak ditemukan di dalam HouseCore!")
+		warn("[ERROR] HouseHumanoid tidak ditemukan di dalam HouseCore!")
 		return
 	end
 
