@@ -181,9 +181,9 @@ local function setupHouseHealth()
 		return
 	end
 
-	local houseHumanoid = houseCore:WaitForChild("HouseHumanoid", 10)
+	local houseHumanoid = houseCore:WaitForChild("Humanoid", 10)
 	if not houseHumanoid then
-		warn("[ERROR] HouseHumanoid tidak ditemukan di dalam HouseCore!")
+		warn("[ERROR REM BAR] HouseHumanoid tidak ditemukan di dalam HouseCore!")
 		return
 	end
 
