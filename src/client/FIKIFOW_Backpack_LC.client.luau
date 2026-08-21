@@ -116,7 +116,7 @@ local function updateHotbarUI()
 		numLabel.Position = UDim2.fromOffset(4, 2)
 		numLabel.BackgroundTransparency = 1
 		numLabel.Text = "[" .. i .. "]"
-		numLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		numLabel.TextColor3 = Color3.fromRGB(55, 65, 81)
 		numLabel.TextSize = 12
 		numLabel.Font = Enum.Font.SourceSansBold
 		numLabel.ZIndex = 3
@@ -125,13 +125,13 @@ local function updateHotbarUI()
 		if tool then
 			-- Style Slot Terisi
 			if tool == equippedTool then
-				slotButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255) -- Warna Aktif
+				slotButton.BackgroundColor3 = Color3.fromRGB(219, 234, 254)
 				slotButton.BorderSizePixel = 2
-				slotButton.BorderColor3 = Color3.fromRGB(255, 255, 255)
+				slotButton.BorderColor3 = Color3.fromRGB(37, 99, 235)
 			else
-				slotButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+				slotButton.BackgroundColor3 = Color3.fromRGB(248, 250, 252)
 				slotButton.BorderSizePixel = 1
-				slotButton.BorderColor3 = Color3.fromRGB(100, 100, 100)
+				slotButton.BorderColor3 = Color3.fromRGB(203, 213, 225)
 			end
 
 			-- CEK IKON ITEM (Tool.TextureId)
@@ -152,7 +152,7 @@ local function updateHotbarUI()
 				nameLabel.Position = UDim2.fromOffset(4, 4)
 				nameLabel.BackgroundTransparency = 1
 				nameLabel.Text = tool.Name
-				nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+				nameLabel.TextColor3 = Color3.fromRGB(31, 41, 55)
 				nameLabel.TextSize = 12
 				nameLabel.TextWrapped = true
 				nameLabel.ZIndex = 2
@@ -164,10 +164,10 @@ local function updateHotbarUI()
 			end)
 		else
 			-- Style Slot Kosong
-			slotButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-			slotButton.BackgroundTransparency = 0.6
+			slotButton.BackgroundColor3 = Color3.fromRGB(226, 232, 240)
+			slotButton.BackgroundTransparency = 0.15
 			slotButton.BorderSizePixel = 1
-			slotButton.BorderColor3 = Color3.fromRGB(60, 60, 60)
+			slotButton.BorderColor3 = Color3.fromRGB(203, 213, 225)
 		end
 	end
 end
