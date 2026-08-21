@@ -3,7 +3,10 @@ local DialogueCore = require(script.Parent:WaitForChild("D_IDLAN_DialogueSystem_
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local dialogueGui = playerGui:WaitForChild("Dgui")
+local dialogueGui = DialogueCore.WaitForGui(playerGui, "Dgui")
+if not dialogueGui then
+	return
+end
 local dialogue = DialogueCore.Get(dialogueGui)
 
 local function getHumanoid()

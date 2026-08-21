@@ -1,9 +1,33 @@
 local UserInputService = game:GetService("UserInputService")
+local CursorLocking = require(script.Parent:WaitForChild("FIKIFOW_CursorLocking"))
 
 local DialogueCore = {}
 DialogueCore.__index = DialogueCore
 
 local instances = {}
+
+function DialogueCore.WaitForGui(playerGui, guiName, timeout)
+	local deadline = os.clock() + (timeout or 10)
+	local dialogueGui = playerGui:FindFirstChild(guiName, true)
+	while not dialogueGui and os.clock() < deadline do
+		task.wait(0.1)
+		dialogueGui = playerGui:FindFirstChild(guiName, true)
+	end
+
+	if not dialogueGui then
+		local starterGui = game:GetService("StarterGui")
+		local starterDialogueGui = starterGui:FindFirstChild(guiName, true)
+		if starterDialogueGui and starterDialogueGui:IsA("ScreenGui") then
+			dialogueGui = starterDialogueGui:Clone()
+			dialogueGui.Parent = playerGui
+		end
+	end
+
+	if not dialogueGui then
+		warn("Dialogue GUI '" .. guiName .. "' tidak ditemukan di StarterGui atau PlayerGui")
+	end
+	return dialogueGui
+end
 
 local function sortButtons(left, right)
 	if left.LayoutOrder == right.LayoutOrder then
@@ -24,6 +48,7 @@ function DialogueCore.new(dialogueGui)
 	self.Choice = nil
 	self.GeneratedButtons = {}
 	self.ButtonConnections = {}
+	self.PreviousCursorState = nil
 
 	local layout = self.OptionsFrame:FindFirstChildOfClass("UIListLayout")
 	if not layout then
@@ -184,6 +209,8 @@ function DialogueCore:_finish(humanoid)
 	self.OptionsFrame.Visible = false
 	self.TextLabel.Text = ""
 	self:_clearButtons()
+	CursorLocking.Restore(self.PreviousCursorState)
+	self.PreviousCursorState = nil
 end
 
 function DialogueCore:Play(conversation, humanoid)
@@ -192,6 +219,7 @@ function DialogueCore:Play(conversation, humanoid)
 	end
 
 	self.Typing = true
+	self.PreviousCursorState = CursorLocking.DisableAndRemember()
 	if humanoid then
 		humanoid.WalkSpeed = 0
 		humanoid.JumpPower = 0
