@@ -1,5 +1,6 @@
 local lighting = game:GetService("Lighting")
 local players = game:GetService("Players")
+local replicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -12,11 +13,19 @@ if not screenGui then
 end
 
 local clockLabel = screenGui:FindFirstChild("AM_PM_Clock", true)
+local dayLabel = screenGui:FindFirstChild("Day_Clock", true)
 
 if not clockLabel or not clockLabel:IsA("TextLabel") then
 	warn("[DayCycle] TextLabel AM_PM_Clock tidak ditemukan di dalam DayCycle_GUI")
 	return
 end
+
+if not dayLabel or not dayLabel:IsA("TextLabel") then
+	warn("[DayCycle] TextLabel Day_Clock tidak ditemukan di dalam DayCycle_GUI")
+	return
+end
+
+local currentDay = replicatedStorage:WaitForChild("CurrentDay")
 
 clockLabel.AutomaticSize = Enum.AutomaticSize.None
 clockLabel.TextScaled = false
@@ -39,5 +48,11 @@ local function updateClockText()
 	clockLabel.Text = string.format("%02d:%02d %s", hour12, minute, period)
 end
 
+local function updateDayText()
+	dayLabel.Text = "DAY " .. tostring(currentDay.Value)
+end
+
 lighting:GetPropertyChangedSignal("ClockTime"):Connect(updateClockText)
+currentDay:GetPropertyChangedSignal("Value"):Connect(updateDayText)
 updateClockText()
+updateDayText()
