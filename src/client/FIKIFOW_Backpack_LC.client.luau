@@ -1,13 +1,18 @@
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
+local CursorLocking = require(script.Parent:WaitForChild("FIKIFOW_CursorLocking"))
 
 local player = Players.LocalPlayer
 
 -- ==========================================
 -- CONFIGURATION
 -- ==========================================
-local MAX_SLOTS = 3 -- Mengatur batas maksimal slot hotbar (misal: 4)
+local MAX_SLOTS = 3 -- Jumlah slot hotbar (1-3)
+
+-- "Backpack" = Mode Produksi (Membaca isi tas bawaan player)
+-- "StarterPack" = Mode Testing (Membaca dari folder StarterPack & Auto-Clone saat di-equip)
+local ITEM_LOCATION_MODE = "StarterPack"
 
 -- 1. PAKSA MATIKAN HOTBAR DEFAULT
 task.spawn(function()
@@ -20,23 +25,38 @@ task.spawn(function()
 	until success
 end)
 
--- 2. AKSI MENGAMBIL UI DARI PLAYERGUI (Sesuai struktur Explorer)
+-- 2. AMBIL UI DARI PLAYERGUI
 local playerGui = player:WaitForChild("PlayerGui")
 local backpackGui = playerGui:WaitForChild("FIKIFOW_Backpack_GUI", 10)
+local inventoryGui = playerGui:WaitForChild("FIKIFOW_Inventory_GUI", 10)
 
-if not backpackGui then
-	warn(" [ERROR] FIKIFOW_Backpack_GUI tidak ditemukan di PlayerGui!")
+if not backpackGui or not inventoryGui then
+	warn(" [ERROR] ScreenGui Backpack atau Inventory tidak ditemukan!")
 	return
 end
+
+inventoryGui.Enabled = false
 
 local hotbarFrame = backpackGui:WaitForChild("HotbarFrame", 10)
+local inventoryFrame = inventoryGui:WaitForChild("InventoryFrame", 10)
 
-if not hotbarFrame then
-	warn(" [ERROR] HotbarFrame tidak ditemukan di dalam FIKIFOW_Backpack_GUI!")
-	return
+local searchBar = inventoryFrame:WaitForChild("SearchBar_TXTbox", 5) or inventoryFrame:FindFirstChild("SearchBar", true)
+local itemContainer = inventoryFrame:WaitForChild("Container", 5)
+
+-- Setup Infinite Scrolling secara dinamis
+if itemContainer then
+	itemContainer.ClipsDescendants = true
+	if itemContainer:IsA("ScrollingFrame") then
+		itemContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		itemContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+		itemContainer.ScrollBarThickness = 6
+	end
 end
 
-local equipSlot -- Forward declaration
+local equipSlot
+local updateAllUI
+local orderedTools = {}
+local savedCursorState = nil
 
 local KEY_MAP = {
 	[Enum.KeyCode.One] = 1,
@@ -50,22 +70,16 @@ local KEY_MAP = {
 	[Enum.KeyCode.Nine] = 9,
 }
 
-local orderedTools = {}
-
 local function getAllTools()
 	local currentTools = {}
-	local backpack = player:FindFirstChild("Backpack")
-	local character = player.Character
 
 	local function registerTools(container)
 		if not container then
 			return
 		end
-
 		for _, item in ipairs(container:GetChildren()) do
 			if item:IsA("Tool") then
 				currentTools[item] = true
-
 				if not table.find(orderedTools, item) then
 					table.insert(orderedTools, item)
 				end
@@ -73,8 +87,13 @@ local function getAllTools()
 		end
 	end
 
-	registerTools(backpack)
-	registerTools(character)
+	-- Logika Switch Mode Folder
+	if ITEM_LOCATION_MODE == "StarterPack" then
+		registerTools(game:GetService("StarterPack"))
+	else
+		registerTools(player:FindFirstChild("Backpack"))
+		registerTools(player.Character)
+	end
 
 	for index = #orderedTools, 1, -1 do
 		if not currentTools[orderedTools[index]] then
@@ -85,31 +104,24 @@ local function getAllTools()
 	return orderedTools
 end
 
-local function updateHotbarUI()
-	-- Hapus slot UI lama
+-- RENDER HOTBAR SLOT (1 - 3)
+local function updateHotbarUI(tools, equippedTool)
 	for _, child in ipairs(hotbarFrame:GetChildren()) do
 		if child:IsA("TextButton") then
 			child:Destroy()
 		end
 	end
 
-	local tools = getAllTools()
-	local character = player.Character
-	local equippedTool = character and character:FindFirstChildOfClass("Tool")
-
-	-- Render UI Slot sesuai batas MAX_SLOTS
 	for i = 1, MAX_SLOTS do
 		local tool = tools[i]
 
-		-- Slot Tombol
 		local slotButton = Instance.new("TextButton")
 		slotButton.Name = "Slot_" .. i
-		slotButton.Size = UDim2.fromScale(1, 1) -- Ukuran slot vertikal
+		slotButton.Size = UDim2.fromScale(1, 1)
 		slotButton.AutoButtonColor = true
-		slotButton.Text = "" -- Teks tombol dikosongkan agar diisi label/ikon
+		slotButton.Text = ""
 		slotButton.Parent = hotbarFrame
 
-		-- Text Label Nomor Slot [1], [2], dst.
 		local numLabel = Instance.new("TextLabel")
 		numLabel.Name = "NumLabel"
 		numLabel.Size = UDim2.fromOffset(20, 20)
@@ -123,7 +135,6 @@ local function updateHotbarUI()
 		numLabel.Parent = slotButton
 
 		if tool then
-			-- Style Slot Terisi
 			if tool == equippedTool then
 				slotButton.BackgroundColor3 = Color3.fromRGB(219, 234, 254)
 				slotButton.BorderSizePixel = 2
@@ -134,7 +145,6 @@ local function updateHotbarUI()
 				slotButton.BorderColor3 = Color3.fromRGB(203, 213, 225)
 			end
 
-			-- CEK IKON ITEM (Tool.TextureId)
 			if tool.TextureId and tool.TextureId ~= "" then
 				local iconImage = Instance.new("ImageLabel")
 				iconImage.Name = "Icon"
@@ -145,7 +155,6 @@ local function updateHotbarUI()
 				iconImage.ZIndex = 2
 				iconImage.Parent = slotButton
 			else
-				-- Jika tidak ada gambar TextureId, tampilkan Nama Item
 				local nameLabel = Instance.new("TextLabel")
 				nameLabel.Name = "ItemName"
 				nameLabel.Size = UDim2.new(1, -8, 1, -8)
@@ -163,7 +172,6 @@ local function updateHotbarUI()
 				equipSlot(i)
 			end)
 		else
-			-- Style Slot Kosong
 			slotButton.BackgroundColor3 = Color3.fromRGB(226, 232, 240)
 			slotButton.BackgroundTransparency = 0.15
 			slotButton.BorderSizePixel = 1
@@ -172,12 +180,118 @@ local function updateHotbarUI()
 	end
 end
 
-equipSlot = function(slotIndex)
-	-- Hanya jalankan jika slot yang ditekan <= MAX_SLOTS
-	if slotIndex > MAX_SLOTS then
+-- RENDER FULL INVENTORY + SEARCH FILTER
+local function updateInventoryUI(tools, equippedTool)
+	if not itemContainer then
 		return
 	end
 
+	-- Garansi keberadaan UIGridLayout agar item tidak menumpuk
+	local gridLayout = itemContainer:FindFirstChildOfClass("UIGridLayout")
+	if not gridLayout then
+		gridLayout = Instance.new("UIGridLayout")
+		gridLayout.CellSize = UDim2.new(0, 65, 0, 65)
+		gridLayout.CellPadding = UDim2.new(0, 8, 0, 8)
+		gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		gridLayout.Parent = itemContainer
+	end
+
+	for _, child in ipairs(itemContainer:GetChildren()) do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+
+	-- Membersihkan spasi berlebih pada kotak pencarian
+	local searchText = ""
+	if searchBar and searchBar:IsA("TextBox") then
+		searchText = searchBar.Text:lower():match("^%s*(.-)%s*$") or ""
+	end
+
+	for index, tool in ipairs(tools) do
+		if searchText == "" or string.find(tool.Name:lower(), searchText, 1, true) then
+			local isHotbar = index <= MAX_SLOTS
+			local isEquipped = (tool == equippedTool)
+
+			local itemButton = Instance.new("TextButton")
+			itemButton.Name = "Item_" .. tool.Name
+			itemButton.LayoutOrder = index
+			itemButton.Size = UDim2.fromOffset(65, 65)
+			itemButton.AutoButtonColor = true
+			itemButton.Text = ""
+			itemButton.Parent = itemContainer
+
+			if isEquipped then
+				itemButton.BackgroundColor3 = Color3.fromRGB(187, 247, 208)
+				itemButton.BorderSizePixel = 2
+				itemButton.BorderColor3 = Color3.fromRGB(34, 197, 94)
+			elseif isHotbar then
+				itemButton.BackgroundColor3 = Color3.fromRGB(219, 234, 254)
+				itemButton.BorderSizePixel = 2
+				itemButton.BorderColor3 = Color3.fromRGB(37, 99, 235)
+			else
+				itemButton.BackgroundColor3 = Color3.fromRGB(248, 250, 252)
+				itemButton.BorderSizePixel = 1
+				itemButton.BorderColor3 = Color3.fromRGB(203, 213, 225)
+			end
+
+			local tagLabel = Instance.new("TextLabel")
+			tagLabel.Name = "Tag"
+			tagLabel.Size = UDim2.new(1, -4, 0, 14)
+			tagLabel.Position = UDim2.new(0, 2, 0, 2)
+			tagLabel.BackgroundTransparency = 1
+			tagLabel.TextSize = 10
+			tagLabel.Font = Enum.Font.SourceSansBold
+			tagLabel.ZIndex = 3
+			tagLabel.Parent = itemButton
+
+			if isHotbar then
+				tagLabel.Text = "[" .. index .. "]"
+				tagLabel.TextColor3 = Color3.fromRGB(37, 99, 235)
+			else
+				tagLabel.Text = ""
+			end
+
+			if tool.TextureId and tool.TextureId ~= "" then
+				local iconImage = Instance.new("ImageLabel")
+				iconImage.Name = "Icon"
+				iconImage.Size = UDim2.fromOffset(36, 36)
+				iconImage.Position = UDim2.new(0.5, -18, 0.5, -14)
+				iconImage.BackgroundTransparency = 1
+				iconImage.Image = tool.TextureId
+				iconImage.ZIndex = 2
+				iconImage.Parent = itemButton
+			else
+				local nameLabel = Instance.new("TextLabel")
+				nameLabel.Name = "ItemName"
+				nameLabel.Size = UDim2.new(1, -8, 1, -16)
+				nameLabel.Position = UDim2.fromOffset(4, 14)
+				nameLabel.BackgroundTransparency = 1
+				nameLabel.Text = tool.Name
+				nameLabel.TextColor3 = Color3.fromRGB(31, 41, 55)
+				nameLabel.TextSize = 11
+				nameLabel.TextWrapped = true
+				nameLabel.ZIndex = 2
+				nameLabel.Parent = itemButton
+			end
+
+			itemButton.MouseButton1Click:Connect(function()
+				equipSlot(index)
+			end)
+		end
+	end
+end
+
+updateAllUI = function()
+	local tools = getAllTools()
+	local character = player.Character
+	local equippedTool = character and character:FindFirstChildOfClass("Tool")
+
+	updateHotbarUI(tools, equippedTool)
+	updateInventoryUI(tools, equippedTool)
+end
+
+equipSlot = function(slotIndex)
 	local character = player.Character
 	if not character then
 		return
@@ -191,7 +305,12 @@ equipSlot = function(slotIndex)
 	local targetTool = tools[slotIndex]
 
 	if targetTool then
-		if targetTool.Parent == character then
+		-- Logic khusus agar testing StarterPack bisa di-equip dengan aman
+		if ITEM_LOCATION_MODE == "StarterPack" and targetTool.Parent == game:GetService("StarterPack") then
+			local newTool = targetTool:Clone()
+			newTool.Parent = player:FindFirstChild("Backpack")
+			humanoid:EquipTool(newTool)
+		elseif targetTool.Parent == character then
 			humanoid:UnequipTools()
 		else
 			humanoid:EquipTool(targetTool)
@@ -199,51 +318,61 @@ equipSlot = function(slotIndex)
 	end
 end
 
--- 3. DETEKSI SHORTCUT KEYBOARD (Dibatasi MAX_SLOTS)
-local inventoryFrame = backpackGui:WaitForChild("InventoryFrame", 10) -- Sesuaikan dengan nama Frame UI buatanmu
-if inventoryFrame then
-	inventoryFrame.Visible = false
+-- LISTENER LIVE SEARCH
+if searchBar and searchBar:IsA("TextBox") then
+	searchBar:GetPropertyChangedSignal("Text"):Connect(updateAllUI)
 end
+
+-- DETEKSI SHORTCUT KEYBOARD
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
 
-	-- 1. Deteksi Tombol ~ (Tilde / Backquote)
 	if input.KeyCode == Enum.KeyCode.Backquote then
-		if inventoryFrame then
-			inventoryFrame.Visible = not inventoryFrame.Visible -- Toggle Buka/Tutup
+		if inventoryGui then
+			inventoryGui.Enabled = not inventoryGui.Enabled
+
+			if inventoryGui.Enabled then
+				savedCursorState = CursorLocking.DisableAndRemember()
+			else
+				if savedCursorState then
+					CursorLocking.Restore(savedCursorState)
+					savedCursorState = nil
+				else
+					CursorLocking.Lock()
+				end
+			end
 		end
 		return
 	end
 
-	-- 2. Deteksi Shortcut Slot 1 - MAX_SLOTS
 	local slotIndex = KEY_MAP[input.KeyCode]
 	if slotIndex and slotIndex <= MAX_SLOTS then
 		equipSlot(slotIndex)
 	end
 end)
 
--- 4. LISTENER INVENTORY
+-- LISTENER INVENTORY
 local function bindCharacterListeners(char)
 	char.ChildAdded:Connect(function(child)
 		if child:IsA("Tool") then
-			updateHotbarUI()
+			updateAllUI()
 		end
 	end)
 	char.ChildRemoved:Connect(function(child)
 		if child:IsA("Tool") then
-			updateHotbarUI()
+			updateAllUI()
 		end
 	end)
-	updateHotbarUI()
+	updateAllUI()
 end
 
 local function setupInventoryListeners()
 	local backpack = player:WaitForChild("Backpack", 10)
 	if backpack then
-		backpack.ChildAdded:Connect(updateHotbarUI)
-		backpack.ChildRemoved:Connect(updateHotbarUI)
+		backpack.ChildAdded:Connect(updateAllUI)
+		backpack.ChildRemoved:Connect(updateAllUI)
 	end
 
 	player.CharacterAdded:Connect(bindCharacterListeners)
@@ -251,7 +380,13 @@ local function setupInventoryListeners()
 		bindCharacterListeners(player.Character)
 	end
 
-	updateHotbarUI()
+	-- Listener tambahan untuk StarterPack Mode
+	if ITEM_LOCATION_MODE == "StarterPack" then
+		game:GetService("StarterPack").ChildAdded:Connect(updateAllUI)
+		game:GetService("StarterPack").ChildRemoved:Connect(updateAllUI)
+	end
+
+	updateAllUI()
 end
 
 setupInventoryListeners()
