@@ -200,11 +200,24 @@ equipSlot = function(slotIndex)
 end
 
 -- 3. DETEKSI SHORTCUT KEYBOARD (Dibatasi MAX_SLOTS)
+local inventoryFrame = backpackGui:WaitForChild("InventoryFrame", 10) -- Sesuaikan dengan nama Frame UI buatanmu
+if inventoryFrame then
+	inventoryFrame.Visible = false
+end
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
 
+	-- 1. Deteksi Tombol ~ (Tilde / Backquote)
+	if input.KeyCode == Enum.KeyCode.Backquote then
+		if inventoryFrame then
+			inventoryFrame.Visible = not inventoryFrame.Visible -- Toggle Buka/Tutup
+		end
+		return
+	end
+
+	-- 2. Deteksi Shortcut Slot 1 - MAX_SLOTS
 	local slotIndex = KEY_MAP[input.KeyCode]
 	if slotIndex and slotIndex <= MAX_SLOTS then
 		equipSlot(slotIndex)

@@ -89,7 +89,7 @@ if not CurrentDay then
 	CurrentDay.Parent = ReplicatedStorage
 end
 
-local fullCycleLength = 500
+local fullCycleLength = 100
 local updateInterval = 0.1
 local minutesPerDay = 24 * 60
 local debugStartHour = 12
