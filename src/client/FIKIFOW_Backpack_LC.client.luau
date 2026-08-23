@@ -231,6 +231,7 @@ local function updateInventoryUI(tools, equippedTool)
 	end
 	gridLayout.CellSize = UDim2.fromOffset(96, 96)
 	gridLayout.CellPadding = UDim2.fromOffset(10, 10)
+	gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 	for _, child in ipairs(itemContainer:GetChildren()) do
