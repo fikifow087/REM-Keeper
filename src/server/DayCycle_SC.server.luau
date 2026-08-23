@@ -1,20 +1,16 @@
 local lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Mengambil folder ZombiesAlive dari Workspace
 local EnemyFolder = game.Workspace:WaitForChild("ZombiesAlive")
 local CurrentDay = ReplicatedStorage:WaitForChild("CurrentDay")
 
-local fullCycleLength = 480 -- Ubah kembali ke waktu normal game kamu (misal 480)
+local fullCycleLength = 100 -- Atur durasi 1 hari sesuka Anda (misal 480 detik)
 local updateInterval = 0.1
 local minutesPerDay = 24 * 60
 
 local currentHour = 6
 local minutesAfterMidnight = currentHour * 60
 
-local isTimeFrozen = false
-
--- Mengambil nilai pembeku global agar bisa dibaca oleh skrip Event kasur
 local TimeFrozenValue = ReplicatedStorage:FindFirstChild("IsTimeFrozen")
 if not TimeFrozenValue then
 	TimeFrozenValue = Instance.new("BoolValue", ReplicatedStorage)
@@ -22,11 +18,17 @@ if not TimeFrozenValue then
 end
 TimeFrozenValue.Value = false
 
-while true do
-	-- Membaca status pembeku dari ReplicatedStorage secara real-time
-	isTimeFrozen = TimeFrozenValue.Value
+-- SISTEM SINKRONISASI AKTIF: Begitu dicairkan dari kasur, reset memori menit ke Jam 6 Pagi
+TimeFrozenValue.Changed:Connect(function(isFrozen)
+	if not isFrozen then
+		minutesAfterMidnight = 6 * 60 -- Sinkronisasikan memori menit internal ke Jam 06.00 Pagi
+		lighting.ClockTime = 6
+		print("[SISTEM] Waktu dicairkan! Jam internal di-reset ke Pagi Hari.")
+	end
+end)
 
-	if not isTimeFrozen then
+while true do
+	if not TimeFrozenValue.Value then
 		local minutesPerUpdate = (updateInterval / fullCycleLength) * minutesPerDay
 		minutesAfterMidnight = (minutesAfterMidnight + minutesPerUpdate) % minutesPerDay
 

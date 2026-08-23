@@ -227,11 +227,11 @@ local function updateInventoryUI(tools, equippedTool)
 	local gridLayout = itemContainer:FindFirstChildOfClass("UIGridLayout")
 	if not gridLayout then
 		gridLayout = Instance.new("UIGridLayout")
-		gridLayout.CellSize = UDim2.new(0, 65, 0, 65)
-		gridLayout.CellPadding = UDim2.new(0, 8, 0, 8)
-		gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		gridLayout.Parent = itemContainer
 	end
+	gridLayout.CellSize = UDim2.fromOffset(96, 96)
+	gridLayout.CellPadding = UDim2.fromOffset(10, 10)
+	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 	for _, child in ipairs(itemContainer:GetChildren()) do
 		if child:IsA("TextButton") then
