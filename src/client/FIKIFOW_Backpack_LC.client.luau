@@ -10,9 +10,9 @@ local player = Players.LocalPlayer
 -- ==========================================
 local MAX_SLOTS = 3 -- Jumlah slot hotbar (1-3)
 
--- "Backpack" = Mode Produksi (Membaca isi tas bawaan player)
--- "StarterPack" = Mode Testing (Membaca dari folder StarterPack & Auto-Clone saat di-equip)
-local ITEM_LOCATION_MODE = "StarterPack"
+-- "Backpack" = Mode Utama/Produksi (Direkomendasikan agar Script Senjata/Item Berfungsi)
+-- "StarterPack" = Mode Testing
+local ITEM_LOCATION_MODE = "Backpack"
 
 -- 1. PAKSA MATIKAN HOTBAR DEFAULT
 task.spawn(function()
@@ -43,7 +43,7 @@ local inventoryFrame = inventoryGui:WaitForChild("InventoryFrame", 10)
 local searchBar = inventoryFrame:WaitForChild("SearchBar_TXTbox", 5) or inventoryFrame:FindFirstChild("SearchBar", true)
 local itemContainer = inventoryFrame:WaitForChild("Container", 5)
 
--- Setup Infinite Scrolling secara dinamis
+-- Setup Infinite Scrolling
 if itemContainer then
 	itemContainer.ClipsDescendants = true
 	if itemContainer:IsA("ScrollingFrame") then
@@ -56,6 +56,7 @@ end
 local equipSlot
 local updateAllUI
 local orderedTools = {}
+local selectedTool = nil
 local savedCursorState = nil
 
 local KEY_MAP = {
@@ -87,7 +88,6 @@ local function getAllTools()
 		end
 	end
 
-	-- Logika Switch Mode Folder
 	if ITEM_LOCATION_MODE == "StarterPack" then
 		registerTools(game:GetService("StarterPack"))
 	else
@@ -104,7 +104,35 @@ local function getAllTools()
 	return orderedTools
 end
 
--- RENDER HOTBAR SLOT (1 - 3)
+-- SWAP & MOVE HELPER
+local function swapTools(toolA, toolB)
+	local idxA = table.find(orderedTools, toolA)
+	local idxB = table.find(orderedTools, toolB)
+
+	if idxA and idxB then
+		orderedTools[idxA] = toolB
+		orderedTools[idxB] = toolA
+	end
+end
+
+local function moveToolToSlotIndex(toolA, targetSlotIndex)
+	local idxA = table.find(orderedTools, toolA)
+	if not idxA then
+		return
+	end
+
+	local toolB = orderedTools[targetSlotIndex]
+	if toolB then
+		local idxB = table.find(orderedTools, toolB)
+		orderedTools[idxA] = toolB
+		orderedTools[idxB] = toolA
+	else
+		table.remove(orderedTools, idxA)
+		table.insert(orderedTools, math.min(targetSlotIndex, #orderedTools + 1), toolA)
+	end
+end
+
+-- RENDER HOTBAR
 local function updateHotbarUI(tools, equippedTool)
 	for _, child in ipairs(hotbarFrame:GetChildren()) do
 		if child:IsA("TextButton") then
@@ -135,7 +163,11 @@ local function updateHotbarUI(tools, equippedTool)
 		numLabel.Parent = slotButton
 
 		if tool then
-			if tool == equippedTool then
+			if tool == selectedTool then
+				slotButton.BackgroundColor3 = Color3.fromRGB(254, 240, 138)
+				slotButton.BorderSizePixel = 2
+				slotButton.BorderColor3 = Color3.fromRGB(234, 179, 8)
+			elseif tool == equippedTool then
 				slotButton.BackgroundColor3 = Color3.fromRGB(219, 234, 254)
 				slotButton.BorderSizePixel = 2
 				slotButton.BorderColor3 = Color3.fromRGB(37, 99, 235)
@@ -167,26 +199,31 @@ local function updateHotbarUI(tools, equippedTool)
 				nameLabel.ZIndex = 2
 				nameLabel.Parent = slotButton
 			end
-
-			slotButton.MouseButton1Click:Connect(function()
-				equipSlot(i)
-			end)
 		else
 			slotButton.BackgroundColor3 = Color3.fromRGB(226, 232, 240)
 			slotButton.BackgroundTransparency = 0.15
 			slotButton.BorderSizePixel = 1
 			slotButton.BorderColor3 = Color3.fromRGB(203, 213, 225)
 		end
+
+		slotButton.MouseButton1Click:Connect(function()
+			if selectedTool then
+				moveToolToSlotIndex(selectedTool, i)
+				selectedTool = nil
+				updateAllUI()
+			else
+				equipSlot(i)
+			end
+		end)
 	end
 end
 
--- RENDER FULL INVENTORY + SEARCH FILTER
+-- RENDER INVENTORY
 local function updateInventoryUI(tools, equippedTool)
 	if not itemContainer then
 		return
 	end
 
-	-- Garansi keberadaan UIGridLayout agar item tidak menumpuk
 	local gridLayout = itemContainer:FindFirstChildOfClass("UIGridLayout")
 	if not gridLayout then
 		gridLayout = Instance.new("UIGridLayout")
@@ -202,7 +239,6 @@ local function updateInventoryUI(tools, equippedTool)
 		end
 	end
 
-	-- Membersihkan spasi berlebih pada kotak pencarian
 	local searchText = ""
 	if searchBar and searchBar:IsA("TextBox") then
 		searchText = searchBar.Text:lower():match("^%s*(.-)%s*$") or ""
@@ -212,6 +248,7 @@ local function updateInventoryUI(tools, equippedTool)
 		if searchText == "" or string.find(tool.Name:lower(), searchText, 1, true) then
 			local isHotbar = index <= MAX_SLOTS
 			local isEquipped = (tool == equippedTool)
+			local isSelected = (tool == selectedTool)
 
 			local itemButton = Instance.new("TextButton")
 			itemButton.Name = "Item_" .. tool.Name
@@ -221,7 +258,11 @@ local function updateInventoryUI(tools, equippedTool)
 			itemButton.Text = ""
 			itemButton.Parent = itemContainer
 
-			if isEquipped then
+			if isSelected then
+				itemButton.BackgroundColor3 = Color3.fromRGB(254, 240, 138)
+				itemButton.BorderSizePixel = 2
+				itemButton.BorderColor3 = Color3.fromRGB(234, 179, 8)
+			elseif isEquipped then
 				itemButton.BackgroundColor3 = Color3.fromRGB(187, 247, 208)
 				itemButton.BorderSizePixel = 2
 				itemButton.BorderColor3 = Color3.fromRGB(34, 197, 94)
@@ -276,7 +317,17 @@ local function updateInventoryUI(tools, equippedTool)
 			end
 
 			itemButton.MouseButton1Click:Connect(function()
-				equipSlot(index)
+				if selectedTool then
+					if selectedTool == tool then
+						selectedTool = nil
+					else
+						swapTools(selectedTool, tool)
+						selectedTool = nil
+					end
+				else
+					selectedTool = tool
+				end
+				updateAllUI()
 			end)
 		end
 	end
@@ -305,12 +356,8 @@ equipSlot = function(slotIndex)
 	local targetTool = tools[slotIndex]
 
 	if targetTool then
-		-- Logic khusus agar testing StarterPack bisa di-equip dengan aman
-		if ITEM_LOCATION_MODE == "StarterPack" and targetTool.Parent == game:GetService("StarterPack") then
-			local newTool = targetTool:Clone()
-			newTool.Parent = player:FindFirstChild("Backpack")
-			humanoid:EquipTool(newTool)
-		elseif targetTool.Parent == character then
+		-- Menggunakan EquipTool resmi agar ter-replikasi sempurna ke Server
+		if targetTool.Parent == character then
 			humanoid:UnequipTools()
 		else
 			humanoid:EquipTool(targetTool)
@@ -318,12 +365,12 @@ equipSlot = function(slotIndex)
 	end
 end
 
--- LISTENER LIVE SEARCH
+-- LISTENER SEARCH
 if searchBar and searchBar:IsA("TextBox") then
 	searchBar:GetPropertyChangedSignal("Text"):Connect(updateAllUI)
 end
 
--- DETEKSI SHORTCUT KEYBOARD
+-- DETEKSI SHORTCUT
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
@@ -336,6 +383,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 			if inventoryGui.Enabled then
 				savedCursorState = CursorLocking.DisableAndRemember()
 			else
+				selectedTool = nil
 				if savedCursorState then
 					CursorLocking.Restore(savedCursorState)
 					savedCursorState = nil
@@ -378,12 +426,6 @@ local function setupInventoryListeners()
 	player.CharacterAdded:Connect(bindCharacterListeners)
 	if player.Character then
 		bindCharacterListeners(player.Character)
-	end
-
-	-- Listener tambahan untuk StarterPack Mode
-	if ITEM_LOCATION_MODE == "StarterPack" then
-		game:GetService("StarterPack").ChildAdded:Connect(updateAllUI)
-		game:GetService("StarterPack").ChildRemoved:Connect(updateAllUI)
 	end
 
 	updateAllUI()
