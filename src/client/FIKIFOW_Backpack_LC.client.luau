@@ -8,16 +8,10 @@ local player = Players.LocalPlayer
 -- ==========================================
 -- CONFIGURATION
 -- ==========================================
-local MAX_SLOTS = 3 -- Jumlah slot hotbar (1-3)
-
--- Opsi Orientasi: "Horizontal" atau "Vertical"
+local MAX_SLOTS = 3
 local HOTBAR_ORIENTATION = "Horizontal"
-
--- Ukuran Slot (dalam piksel) - Rasio 1:1 tetap terjaga otomatis
 local SLOT_SIZE = 82
 
--- "Backpack" = Mode Utama/Produksi (Direkomendasikan agar Script Senjata/Item Berfungsi)
--- "StarterPack" = Mode Testing
 local ITEM_LOCATION_MODE = "Backpack"
 
 -- 1. PAKSA MATIKAN HOTBAR DEFAULT
@@ -49,7 +43,6 @@ local inventoryFrame = inventoryGui:WaitForChild("InventoryFrame", 10)
 local searchBar = inventoryFrame:WaitForChild("SearchBar_TXTbox", 5) or inventoryFrame:FindFirstChild("SearchBar", true)
 local itemContainer = inventoryFrame:WaitForChild("Container", 5)
 
--- Setup Infinite Scrolling
 if itemContainer then
 	itemContainer.ClipsDescendants = true
 	if itemContainer:IsA("ScrollingFrame") then
@@ -110,7 +103,6 @@ local function getAllTools()
 	return orderedTools
 end
 
--- SWAP & MOVE HELPER
 local function swapTools(toolA, toolB)
 	local idxA = table.find(orderedTools, toolA)
 	local idxB = table.find(orderedTools, toolB)
@@ -138,7 +130,6 @@ local function moveToolToSlotIndex(toolA, targetSlotIndex)
 	end
 end
 
--- RENDER HOTBAR
 local function updateHotbarUI(tools, equippedTool)
 	local listLayout = hotbarFrame:FindFirstChildOfClass("UIListLayout")
 	if not listLayout then
@@ -173,7 +164,6 @@ local function updateHotbarUI(tools, equippedTool)
 		slotButton.LayoutOrder = i
 		slotButton.Size = UDim2.fromOffset(SLOT_SIZE, SLOT_SIZE)
 
-		-- Menjaga aspek rasio persegi 1:1
 		local aspectConstraint = Instance.new("UIAspectRatioConstraint")
 		aspectConstraint.AspectRatio = 1
 		aspectConstraint.DominantAxis = Enum.DominantAxis.Width
@@ -251,7 +241,6 @@ local function updateHotbarUI(tools, equippedTool)
 	end
 end
 
--- RENDER INVENTORY
 local function updateInventoryUI(tools, equippedTool)
 	if not itemContainer then
 		return
@@ -372,6 +361,16 @@ updateAllUI = function()
 	local character = player.Character
 	local equippedTool = character and character:FindFirstChildOfClass("Tool")
 
+	-- Jika mode StarterPack, pastikan UI mendeteksi tool fisik di karakter
+	if ITEM_LOCATION_MODE == "StarterPack" and equippedTool then
+		for _, tool in ipairs(tools) do
+			if tool.Name == equippedTool.Name then
+				equippedTool = tool
+				break
+			end
+		end
+	end
+
 	updateHotbarUI(tools, equippedTool)
 	updateInventoryUI(tools, equippedTool)
 end
@@ -389,6 +388,21 @@ equipSlot = function(slotIndex)
 	local tools = getAllTools()
 	local targetTool = tools[slotIndex]
 
+	-- Mencegah bug item hilang: Petakan template ke tool fisik asli di Backpack/Character
+	if targetTool and ITEM_LOCATION_MODE == "StarterPack" then
+		local realTool = character:FindFirstChild(targetTool.Name)
+		if not realTool then
+			local backpack = player:FindFirstChild("Backpack")
+			if backpack then
+				realTool = backpack:FindFirstChild(targetTool.Name)
+			end
+		end
+
+		if realTool and realTool:IsA("Tool") then
+			targetTool = realTool
+		end
+	end
+
 	if targetTool then
 		if targetTool.Parent == character then
 			humanoid:UnequipTools()
@@ -398,12 +412,10 @@ equipSlot = function(slotIndex)
 	end
 end
 
--- LISTENER SEARCH
 if searchBar and searchBar:IsA("TextBox") then
 	searchBar:GetPropertyChangedSignal("Text"):Connect(updateAllUI)
 end
 
--- DETEKSI SHORTCUT
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
@@ -434,7 +446,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
--- LISTENER INVENTORY
 local function bindCharacterListeners(char)
 	char.ChildAdded:Connect(function(child)
 		if child:IsA("Tool") then
