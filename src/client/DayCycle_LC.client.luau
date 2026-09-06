@@ -31,7 +31,7 @@ clockLabel.AutomaticSize = Enum.AutomaticSize.None
 clockLabel.TextScaled = false
 clockLabel.TextWrapped = false
 -- clockLabel.Size = UDim2.fromOffset(220, 60)
-clockLabel.TextSize = 93
+-- clockLabel.TextSize = 93
 -- clockLabel.TextXAlignment = Enum.TextXAlignment.Center
 
 local function updateClockText()

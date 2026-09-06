@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EnemyFolder = game.Workspace:WaitForChild("ZombiesAlive")
 local CurrentDay = ReplicatedStorage:WaitForChild("CurrentDay")
 
-local fullCycleLength = 100 -- Atur durasi 1 hari sesuka Anda (misal 480 detik)
+local fullCycleLength = 10 -- Atur durasi testing atau normal game kamu
 local updateInterval = 0.1
 local minutesPerDay = 24 * 60
 
@@ -18,10 +18,10 @@ if not TimeFrozenValue then
 end
 TimeFrozenValue.Value = false
 
--- SISTEM SINKRONISASI AKTIF: Begitu dicairkan dari kasur, reset memori menit ke Jam 6 Pagi
+-- SISTEM SINKRONISASI: Reset memori menit internal ke Jam 6 Pagi saat kasur dicairkan
 TimeFrozenValue.Changed:Connect(function(isFrozen)
 	if not isFrozen then
-		minutesAfterMidnight = 6 * 60 -- Sinkronisasikan memori menit internal ke Jam 06.00 Pagi
+		minutesAfterMidnight = 6 * 60
 		lighting.ClockTime = 6
 		print("[SISTEM] Waktu dicairkan! Jam internal di-reset ke Pagi Hari.")
 	end
@@ -34,11 +34,13 @@ while true do
 
 		lighting.ClockTime = minutesAfterMidnight / 60
 
-		-- DETEKSI JAM 22.00 MALAM
+		-- DETEKSI JAM 22.00 MALAM (WAKTU MEMBEKU)
 		if minutesAfterMidnight >= (22 * 60) and minutesAfterMidnight < (23 * 60) then
-			TimeFrozenValue.Value = true -- Bekukan waktu global
+			-- Cukup ubah nilai BoolValue ini menjadi true.
+			-- Perubahan ini akan otomatis memicu skrip kasur untuk memulai countdown!
+			TimeFrozenValue.Value = true
 			lighting.ClockTime = 22
-			print("[SISTEM] Jam 22.00! Silakan tidur untuk mengacak event esok hari.")
+			print("[SISTEM] Jam 22.00! Waktu membeku.")
 		end
 	end
 

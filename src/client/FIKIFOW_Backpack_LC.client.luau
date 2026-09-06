@@ -10,6 +10,12 @@ local player = Players.LocalPlayer
 -- ==========================================
 local MAX_SLOTS = 3 -- Jumlah slot hotbar (1-3)
 
+-- Opsi Orientasi: "Horizontal" atau "Vertical"
+local HOTBAR_ORIENTATION = "Horizontal"
+
+-- Ukuran Slot (dalam piksel) - Rasio 1:1 tetap terjaga otomatis
+local SLOT_SIZE = 82
+
 -- "Backpack" = Mode Utama/Produksi (Direkomendasikan agar Script Senjata/Item Berfungsi)
 -- "StarterPack" = Mode Testing
 local ITEM_LOCATION_MODE = "Backpack"
@@ -134,6 +140,25 @@ end
 
 -- RENDER HOTBAR
 local function updateHotbarUI(tools, equippedTool)
+	local listLayout = hotbarFrame:FindFirstChildOfClass("UIListLayout")
+	if not listLayout then
+		listLayout = Instance.new("UIListLayout")
+		listLayout.Parent = hotbarFrame
+	end
+
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	listLayout.Padding = UDim.new(0, 6)
+
+	if HOTBAR_ORIENTATION == "Horizontal" then
+		listLayout.FillDirection = Enum.FillDirection.Horizontal
+		listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		listLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	else
+		listLayout.FillDirection = Enum.FillDirection.Vertical
+		listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		listLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	end
+
 	for _, child in ipairs(hotbarFrame:GetChildren()) do
 		if child:IsA("TextButton") then
 			child:Destroy()
@@ -145,7 +170,15 @@ local function updateHotbarUI(tools, equippedTool)
 
 		local slotButton = Instance.new("TextButton")
 		slotButton.Name = "Slot_" .. i
-		slotButton.Size = UDim2.fromScale(1, 1)
+		slotButton.LayoutOrder = i
+		slotButton.Size = UDim2.fromOffset(SLOT_SIZE, SLOT_SIZE)
+
+		-- Menjaga aspek rasio persegi 1:1
+		local aspectConstraint = Instance.new("UIAspectRatioConstraint")
+		aspectConstraint.AspectRatio = 1
+		aspectConstraint.DominantAxis = Enum.DominantAxis.Width
+		aspectConstraint.Parent = slotButton
+
 		slotButton.AutoButtonColor = true
 		slotButton.Text = ""
 		slotButton.Parent = hotbarFrame
@@ -180,8 +213,8 @@ local function updateHotbarUI(tools, equippedTool)
 			if tool.TextureId and tool.TextureId ~= "" then
 				local iconImage = Instance.new("ImageLabel")
 				iconImage.Name = "Icon"
-				iconImage.Size = UDim2.fromOffset(40, 40)
-				iconImage.Position = UDim2.new(0.5, -20, 0.5, -20)
+				iconImage.Size = UDim2.fromScale(0.7, 0.7)
+				iconImage.Position = UDim2.fromScale(0.15, 0.15)
 				iconImage.BackgroundTransparency = 1
 				iconImage.Image = tool.TextureId
 				iconImage.ZIndex = 2
@@ -357,7 +390,6 @@ equipSlot = function(slotIndex)
 	local targetTool = tools[slotIndex]
 
 	if targetTool then
-		-- Menggunakan EquipTool resmi agar ter-replikasi sempurna ke Server
 		if targetTool.Parent == character then
 			humanoid:UnequipTools()
 		else
